@@ -1,9 +1,9 @@
 ## Loader
 
 ```bash
-@set ProcessName="none.exe"
-@set DllPath32="none.dll"
-@set DllPath64="none.dll"
+@set ProcessName="*.exe"
+@set DllPath32="%~dp0Test32.dll"
+@set DllPath64="%~dp0Test64.dll"
 
 @sc stop Bridge
 @sc delete Bridge
