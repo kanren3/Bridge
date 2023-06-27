@@ -1,31 +1,27 @@
 #include "Defs.h"
 #include "Tools.h"
 
-VOID
-NTAPI
-RinDbgPrint(
-	__in PCCH Format,
-	__in ...
+VOID NTAPI
+LogSyncDbgPrint(
+    __in PCSTR Format,
+    __in ...
 )
 {
-	va_list ArgList;
+    va_list ArgList;
 
-	__va_start(
-		&ArgList,
-		Format);
+    va_start(ArgList, Format);
 
-	vDbgPrintExWithPrefix(
-		DRIVER_NAME,
-		DPFLTR_IHVDRIVER_ID,
-		DPFLTR_ERROR_LEVEL,
-		Format,
-		ArgList);
+    vDbgPrintExWithPrefix(
+        "[Bridge]\t",
+        DPFLTR_IHVDRIVER_ID,
+        DPFLTR_ERROR_LEVEL,
+        Format,
+        ArgList);
 
-	__va_end(&ArgList);
+    va_end(ArgList);
 }
 
-ULONG
-NTAPI
+ULONG NTAPI
 GetUserModuleHandle32(
     __in PEPROCESS Process,
     __in LPCWSTR DllName
@@ -94,8 +90,7 @@ GetUserModuleHandle32(
     return ModuleHandle;
 }
 
-ULONGLONG
-NTAPI
+ULONGLONG NTAPI
 GetUserModuleHandle64(
     __in PEPROCESS Process,
     __in LPCWSTR DllName
@@ -164,8 +159,7 @@ GetUserModuleHandle64(
     return ModuleHandle;
 }
 
-ULONG
-NTAPI
+ULONG NTAPI
 GetExportProcAddress32(
     __in PEPROCESS Process,
     __in ULONG ImageBase,
@@ -258,8 +252,7 @@ GetExportProcAddress32(
     return 0;
 }
 
-ULONGLONG
-NTAPI
+ULONGLONG NTAPI
 GetExportProcAddress64(
     __in PEPROCESS Process,
     __in ULONG64 ImageBase,

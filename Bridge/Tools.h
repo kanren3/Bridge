@@ -7,8 +7,8 @@ extern "C" {
 
 	VOID
 		NTAPI
-		RinDbgPrint(
-			__in PCCH Format,
+		LogSyncDbgPrint(
+			__in PCSTR Format,
 			__in ...
 		);
 

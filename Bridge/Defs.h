@@ -1,14 +1,11 @@
 #ifndef _DEFS_H_
 #define _DEFS_H_
 
-#define _CRT_SECURE_NO_WARNINGS
-#define _NO_CRT_STDIO_INLINE
-
-#define DRIVER_NAME "[Bridge]"
-
 #include <ntifs.h>
 #include <windef.h>
+#include <ntstrsafe.h>
 #include <ntimage.h>
+#include <intrin.h>
 
 #include "Private.h"
 

@@ -8,32 +8,29 @@ extern PWCHAR InjectProcessName;
 extern PWCHAR InjectDllPath32;
 extern PWCHAR InjectDllPath64;
 
-VOID
-NTAPI
+VOID NTAPI
 AsyncKernelNormalRoutine(
     __in PVOID NormalContext,
     __in PVOID SystemArgument1,
     __in PVOID SystemArgument2
 )
 {
-    NTSTATUS Status = STATUS_SUCCESS;
+    NTSTATUS Status;
 
-    PUCHAR BaseAddress = NULL;
+    PUCHAR BaseAddress;
     SIZE_T RegionSize = PAGE_SIZE;
 
-    PASYNC_USER_BLOCK64 SyncUser64 = NULL;
-    PASYNC_USER_BLOCK32 SyncUser32 = NULL;
+    PASYNC_USER_BLOCK64 SyncUser64;
+    PASYNC_USER_BLOCK32 SyncUser32;
 
     if (NULL == NormalContext) {
-
         if (NULL != InjectDllPath64) {
-            Status = ZwAllocateVirtualMemory(
-                ZwCurrentProcess(),
-                &BaseAddress,
-                0,
-                &RegionSize,
-                MEM_COMMIT,
-                PAGE_EXECUTE_READWRITE);
+            Status = ZwAllocateVirtualMemory(ZwCurrentProcess(),
+                                             &BaseAddress,
+                                             0,
+                                             &RegionSize,
+                                             MEM_COMMIT,
+                                             PAGE_EXECUTE_READWRITE);
 
             if (FALSE != NT_SUCCESS(Status)) {
                 RtlZeroMemory(BaseAddress, RegionSize);
@@ -58,8 +55,7 @@ AsyncKernelNormalRoutine(
                         InjectDllPath64,
                         wcslen(InjectDllPath64) * 2);
 
-                    RinDbgPrint("LoadShell64:%p BaseAddress:%p\n", LoadShell64, BaseAddress);
-
+                    LogSyncDbgPrint("x64 LdrLoadDll:%016llx\n", SyncUser64->LdrLoadDll);
                     AsyncCall(BaseAddress, SyncUser64, UserMode);
                 }
             }
@@ -99,9 +95,7 @@ AsyncKernelNormalRoutine(
                         wcslen(InjectDllPath32) * 2);
 
                     PsWrapApcWow64Thread(&SyncUser32, &BaseAddress);
-
-                    RinDbgPrint("LoadShell32:%p BaseAddress:%p\n", LoadShell32, BaseAddress);
-
+                    LogSyncDbgPrint("x86 LdrLoadDll:%016llx\n", SyncUser32->LdrLoadDll);
                     AsyncCall(BaseAddress, SyncUser32, UserMode);
                 }
             }
@@ -109,8 +103,7 @@ AsyncKernelNormalRoutine(
     }
 }
 
-VOID
-NTAPI
+VOID NTAPI
 LoadImageNotifyRoutine(
     __in_opt PUNICODE_STRING FullImageName,
     __in HANDLE ProcessId,
@@ -119,9 +112,9 @@ LoadImageNotifyRoutine(
 {
     NTSTATUS Status;
     PWSTR LoadImagePath;
-    PWSTR ImageFilePath;
     PUNICODE_STRING SourceString;
     UNICODE_STRING DestinationString;
+    UNICODE_STRING ProcessString;
 
     Status = SeLocateProcessImageName(IoGetCurrentProcess(), &SourceString);
 
@@ -129,13 +122,9 @@ LoadImageNotifyRoutine(
         Status = RtlDowncaseUnicodeString(&DestinationString, SourceString, TRUE);
 
         if (FALSE != NT_SUCCESS(Status)) {
-            ImageFilePath = RinAllocatePool(NonPagedPool, DestinationString.Length + 2);
+            RtlInitUnicodeString(&ProcessString, InjectProcessName);
 
-            if (NULL != ImageFilePath) {
-                RtlZeroMemory(ImageFilePath, DestinationString.Length + 2);
-                RtlCopyMemory(ImageFilePath, DestinationString.Buffer, DestinationString.Length);
-
-                if (0 != wcsstr(ImageFilePath, InjectProcessName)) {
+            if (FALSE != FsRtlIsNameInExpression(&ProcessString, &DestinationString, FALSE, NULL)) {
 
                     if (NULL != FullImageName) {
                         LoadImagePath = RinAllocatePool(NonPagedPool, FullImageName->Length + 2);
@@ -154,9 +143,6 @@ LoadImageNotifyRoutine(
                         }
                     }
                 }
-
-                RinFreePool(ImageFilePath);
-            }
 
             RtlFreeUnicodeString(&DestinationString);
         }
