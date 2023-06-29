@@ -17,7 +17,7 @@ AsyncKernelNormalRoutine(
 {
     NTSTATUS Status;
 
-    PUCHAR BaseAddress;
+    PUCHAR BaseAddress = NULL;
     SIZE_T RegionSize = PAGE_SIZE;
 
     PASYNC_USER_BLOCK64 SyncUser64;
@@ -68,7 +68,7 @@ AsyncKernelNormalRoutine(
                 &BaseAddress,
                 0,
                 &RegionSize,
-                MEM_COMMIT,
+                MEM_COMMIT | MEM_RESERVE,
                 PAGE_EXECUTE_READWRITE);
 
             if (FALSE != NT_SUCCESS(Status)) {
@@ -82,7 +82,7 @@ AsyncKernelNormalRoutine(
                     IoGetCurrentProcess(),
                     GetUserModuleHandle32(IoGetCurrentProcess(), L"ntdll.dll"),
                     "LdrLoadDll");
-
+                
                 if (NULL != SyncUser32->LdrLoadDll) {
                     RtlCopyMemory(
                         BaseAddress,
@@ -123,9 +123,9 @@ LoadImageNotifyRoutine(
 
         if (FALSE != NT_SUCCESS(Status)) {
             RtlInitUnicodeString(&ProcessString, InjectProcessName);
-
+            
             if (FALSE != FsRtlIsNameInExpression(&ProcessString, &DestinationString, FALSE, NULL)) {
-
+                
                     if (NULL != FullImageName) {
                         LoadImagePath = RinAllocatePool(NonPagedPool, FullImageName->Length + 2);
 
@@ -135,7 +135,7 @@ LoadImageNotifyRoutine(
 
                             if (NULL != wcsstr(LoadImagePath, L"System32\\kernel32.dll") ||
                                 NULL != wcsstr(LoadImagePath, L"SysWOW64\\kernel32.dll")) {
-
+                                
                                 AsyncCall(AsyncKernelNormalRoutine, PsGetProcessWow64Process(IoGetCurrentProcess()), KernelMode);
                             }
 
