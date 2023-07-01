@@ -4,6 +4,7 @@
 #include "Routine.h"
 
 PWCHAR InjectProcessName = NULL;
+PWCHAR InjectLoadedAfter = NULL;
 PWCHAR InjectDllPath32 = NULL;
 PWCHAR InjectDllPath64 = NULL;
 
@@ -125,6 +126,13 @@ DriverEntry(
     InjectProcessName = RegQueryUnicodeString(RegistryPath, L"ProcessName");
 
     if (NULL == InjectProcessName) {
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    InjectLoadedAfter = RegQueryUnicodeString(RegistryPath, L"LoadedAfter");
+
+    if (NULL == InjectLoadedAfter) {
+        RinFreePool(InjectProcessName);
         return STATUS_UNSUCCESSFUL;
     }
 

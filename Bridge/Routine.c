@@ -5,6 +5,7 @@
 #include "Routine.h"
 
 extern PWCHAR InjectProcessName;
+extern PWCHAR InjectLoadedAfter;
 extern PWCHAR InjectDllPath32;
 extern PWCHAR InjectDllPath64;
 
@@ -82,7 +83,7 @@ AsyncKernelNormalRoutine(
                     IoGetCurrentProcess(),
                     GetUserModuleHandle32(IoGetCurrentProcess(), L"ntdll.dll"),
                     "LdrLoadDll");
-                
+
                 if (NULL != SyncUser32->LdrLoadDll) {
                     RtlCopyMemory(
                         BaseAddress,
@@ -111,42 +112,39 @@ LoadImageNotifyRoutine(
 )
 {
     NTSTATUS Status;
-    PWSTR LoadImagePath;
-    PUNICODE_STRING SourceString;
+    PUNICODE_STRING ImageNameString;
     UNICODE_STRING DestinationString;
     UNICODE_STRING ProcessString;
+    UNICODE_STRING AfterString;
 
-    Status = SeLocateProcessImageName(IoGetCurrentProcess(), &SourceString);
+    Status = SeLocateProcessImageName(IoGetCurrentProcess(), &ImageNameString);
 
     if (FALSE != NT_SUCCESS(Status)) {
-        Status = RtlDowncaseUnicodeString(&DestinationString, SourceString, TRUE);
+        Status = RtlDowncaseUnicodeString(&DestinationString, ImageNameString, TRUE);
 
         if (FALSE != NT_SUCCESS(Status)) {
             RtlInitUnicodeString(&ProcessString, InjectProcessName);
-            
+
             if (FALSE != FsRtlIsNameInExpression(&ProcessString, &DestinationString, FALSE, NULL)) {
-                
-                    if (NULL != FullImageName) {
-                        LoadImagePath = RinAllocatePool(NonPagedPool, FullImageName->Length + 2);
+                RtlFreeUnicodeString(&DestinationString);
 
-                        if (NULL != LoadImagePath) {
-                            RtlZeroMemory(LoadImagePath, FullImageName->Length + 2);
-                            RtlCopyMemory(LoadImagePath, FullImageName->Buffer, FullImageName->Length);
+                Status = RtlDowncaseUnicodeString(&DestinationString, FullImageName, TRUE);
 
-                            if (NULL != wcsstr(LoadImagePath, L"System32\\kernel32.dll") ||
-                                NULL != wcsstr(LoadImagePath, L"SysWOW64\\kernel32.dll")) {
-                                
-                                AsyncCall(AsyncKernelNormalRoutine, PsGetProcessWow64Process(IoGetCurrentProcess()), KernelMode);
-                            }
+                if (FALSE != NT_SUCCESS(Status)) {
+                    RtlInitUnicodeString(&AfterString, InjectLoadedAfter);
 
-                            RinFreePool(LoadImagePath);
-                        }
+                    if (FALSE != FsRtlIsNameInExpression(&AfterString, &DestinationString, FALSE, NULL)) {
+                        AsyncCall(AsyncKernelNormalRoutine, PsGetProcessWow64Process(IoGetCurrentProcess()), KernelMode);
                     }
-                }
 
-            RtlFreeUnicodeString(&DestinationString);
+                    RtlFreeUnicodeString(&DestinationString);
+                }
+            }
+            else {
+                RtlFreeUnicodeString(&DestinationString);
+            }
         }
 
-        ExFreePool(SourceString);
+        ExFreePool(ImageNameString);
     }
 }
