@@ -1,4 +1,4 @@
-#include "Defs.h"
+﻿#include "Defs.h"
 #include "Bridge.h"
 #include "Async.h"
 #include "Routine.h"
@@ -139,6 +139,46 @@ DriverEntry(
     InjectDllPath32 = RegQueryUnicodeString(RegistryPath, L"DllPath32");
     InjectDllPath64 = RegQueryUnicodeString(RegistryPath, L"DllPath64");
 
+    if (NULL != InjectDllPath32) {
+        ULONG BufferLength = wcslen(InjectDllPath32) * sizeof(WCHAR);
+        BufferLength += wcslen(L"\\??\\") * sizeof(WCHAR);
+        BufferLength += sizeof(WCHAR);
+
+        PWCHAR Buffer = RinAllocatePool(NonPagedPool, BufferLength);
+        if (NULL != Buffer) {
+            RtlZeroMemory(Buffer, BufferLength);
+            wcscat(Buffer, L"\\??\\");
+            wcscat(Buffer, InjectDllPath32);
+
+            RinFreePool(InjectDllPath32);
+            InjectDllPath32 = Buffer;
+        }
+        else {
+            RinFreePool(InjectDllPath32);
+            InjectDllPath32 = NULL;
+        }
+    }
+
+    if (NULL != InjectDllPath64) {
+        ULONG BufferLength = wcslen(InjectDllPath64) * sizeof(WCHAR);
+        BufferLength += wcslen(L"\\??\\") * sizeof(WCHAR);
+        BufferLength += sizeof(WCHAR);
+
+        PWCHAR Buffer = RinAllocatePool(NonPagedPool, BufferLength);
+        if (NULL != Buffer) {
+            RtlZeroMemory(Buffer, BufferLength);
+            wcscat(Buffer, L"\\??\\");
+            wcscat(Buffer, InjectDllPath64);
+
+            RinFreePool(InjectDllPath64);
+            InjectDllPath64 = Buffer;
+        }
+        else {
+            RinFreePool(InjectDllPath64);
+            InjectDllPath64 = NULL;
+        }
+    }
+    
     PsSetLoadImageNotifyRoutine(LoadImageNotifyRoutine);
 
     return STATUS_SUCCESS;

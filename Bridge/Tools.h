@@ -1,4 +1,4 @@
-#ifndef _TOOLS_H_
+﻿#ifndef _TOOLS_H_
 #define _TOOLS_H_
 
 #ifdef __cplusplus
@@ -191,6 +191,19 @@ extern "C" {
 			__in PEPROCESS Process,
 			__in ULONG64 ImageBase,
 			__in LPCSTR FunctionName
+		);
+
+	PUCHAR
+		NTAPI
+		ReadFile (
+			__in PWCHAR FilePath,
+			__out PULONG FileSize
+		);
+
+	VOID
+		NTAPI
+		FreeFile (
+			__in PUCHAR Buffer
 		);
 
 #ifdef __cplusplus

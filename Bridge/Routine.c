@@ -1,4 +1,4 @@
-#include "Defs.h"
+﻿#include "Defs.h"
 #include "Async.h"
 #include "Tools.h"
 #include "Inject.h"
@@ -19,44 +19,53 @@ AsyncKernelNormalRoutine(
     NTSTATUS Status;
 
     PUCHAR BaseAddress = NULL;
-    SIZE_T RegionSize = PAGE_SIZE;
+    SIZE_T RegionSize = 0;
+    ULONG FileSize;
+    PVOID FileBuffer;
 
     PASYNC_USER_BLOCK64 SyncUser64;
     PASYNC_USER_BLOCK32 SyncUser32;
 
     if (NULL == NormalContext) {
         if (NULL != InjectDllPath64) {
-            Status = ZwAllocateVirtualMemory(ZwCurrentProcess(),
-                                             &BaseAddress,
-                                             0,
-                                             &RegionSize,
-                                             MEM_COMMIT,
-                                             PAGE_EXECUTE_READWRITE);
+            FileBuffer = ReadFile(InjectDllPath64, &FileSize);
 
-            if (FALSE != NT_SUCCESS(Status)) {
-                RtlZeroMemory(BaseAddress, RegionSize);
+            if (NULL != FileBuffer) {
+                RegionSize += sizeof(DispatchrCode64);
+                RegionSize += sizeof(LoaderCode64);
+                RegionSize += sizeof(ASYNC_USER_BLOCK64);
+                RegionSize += FileSize;
 
-                SyncUser64 = BaseAddress + sizeof(LoadShell64);
-                SyncUser64->DllName.Buffer = BaseAddress + sizeof(LoadShell64) + sizeof(ASYNC_USER_BLOCK64);
-                SyncUser64->DllName.Length = wcslen(InjectDllPath64) * 2;
-                SyncUser64->DllName.MaximumLength = wcslen(InjectDllPath64) * 2;
-                SyncUser64->LdrLoadDll = GetExportProcAddress64(
-                    IoGetCurrentProcess(),
-                    GetUserModuleHandle64(IoGetCurrentProcess(), L"ntdll.dll"),
-                    "LdrLoadDll");
+                Status = ZwAllocateVirtualMemory(ZwCurrentProcess(),
+                                                 &BaseAddress,
+                                                 0,
+                                                 &RegionSize,
+                                                 MEM_COMMIT | MEM_RESERVE,
+                                                 PAGE_EXECUTE_READWRITE);
 
-                if (NULL != SyncUser64->LdrLoadDll) {
-                    RtlCopyMemory(
-                        BaseAddress,
-                        LoadShell64,
-                        sizeof(LoadShell64));
+                if (FALSE != NT_SUCCESS(Status)) {
+                    RtlZeroMemory(BaseAddress, RegionSize);
+                    SyncUser64 = BaseAddress + sizeof(DispatchrCode64) + sizeof(LoaderCode64);
+                    SyncUser64->DispatchrBase = BaseAddress;
+                    SyncUser64->Loader = BaseAddress + sizeof(DispatchrCode64);
+                    SyncUser64->ImageBase = BaseAddress + sizeof(DispatchrCode64) + sizeof(LoaderCode64) + sizeof(ASYNC_USER_BLOCK64);
 
                     RtlCopyMemory(
-                        BaseAddress + sizeof(LoadShell64) + sizeof(ASYNC_USER_BLOCK64),
-                        InjectDllPath64,
-                        wcslen(InjectDllPath64) * 2);
+                        (PVOID)SyncUser64->DispatchrBase,
+                        DispatchrCode64,
+                        sizeof(DispatchrCode64));
 
-                    LogSyncDbgPrint("x64 LdrLoadDll:%016llx\n", SyncUser64->LdrLoadDll);
+                    RtlCopyMemory(
+                        (PVOID)SyncUser64->Loader,
+                        LoaderCode64,
+                        sizeof(LoaderCode64));
+
+                    RtlCopyMemory(
+                        (PVOID)SyncUser64->ImageBase,
+                        FileBuffer,
+                        FileSize);
+
+                    LogSyncDbgPrint("Loader64:%p ImageBase64:%p\n", (PVOID)SyncUser64->Loader, (PVOID)SyncUser64->ImageBase);
                     AsyncCall(BaseAddress, SyncUser64, UserMode);
                 }
             }
@@ -64,39 +73,46 @@ AsyncKernelNormalRoutine(
     }
     else {
         if (NULL != InjectDllPath32) {
-            Status = ZwAllocateVirtualMemory(
-                ZwCurrentProcess(),
-                &BaseAddress,
-                0,
-                &RegionSize,
-                MEM_COMMIT | MEM_RESERVE,
-                PAGE_EXECUTE_READWRITE);
+            FileBuffer = ReadFile(InjectDllPath32, &FileSize);
 
-            if (FALSE != NT_SUCCESS(Status)) {
-                RtlZeroMemory(BaseAddress, RegionSize);
+            if (NULL != FileBuffer) {
+                RegionSize += sizeof(DispatchrCode32);
+                RegionSize += sizeof(LoaderCode32);
+                RegionSize += sizeof(ASYNC_USER_BLOCK32);
+                RegionSize += FileSize;
 
-                SyncUser32 = BaseAddress + sizeof(LoadShell32);
-                SyncUser32->DllName.Buffer = BaseAddress + sizeof(LoadShell32) + sizeof(ASYNC_USER_BLOCK32);
-                SyncUser32->DllName.Length = wcslen(InjectDllPath32) * 2;
-                SyncUser32->DllName.MaximumLength = wcslen(InjectDllPath32) * 2;
-                SyncUser32->LdrLoadDll = GetExportProcAddress32(
-                    IoGetCurrentProcess(),
-                    GetUserModuleHandle32(IoGetCurrentProcess(), L"ntdll.dll"),
-                    "LdrLoadDll");
+                Status = ZwAllocateVirtualMemory(ZwCurrentProcess(),
+                                                 &BaseAddress,
+                                                 0,
+                                                 &RegionSize,
+                                                 MEM_COMMIT | MEM_RESERVE,
+                                                 PAGE_EXECUTE_READWRITE);
 
-                if (NULL != SyncUser32->LdrLoadDll) {
-                    RtlCopyMemory(
-                        BaseAddress,
-                        LoadShell32,
-                        sizeof(LoadShell32));
+                if (FALSE != NT_SUCCESS(Status)) {
+                    RtlZeroMemory(BaseAddress, RegionSize);
+                    SyncUser32 = BaseAddress + sizeof(DispatchrCode32) + sizeof(LoaderCode32);
+                    SyncUser32->DispatchrBase = BaseAddress;
+                    SyncUser32->Loader = BaseAddress + sizeof(DispatchrCode32);
+                    SyncUser32->ImageBase = BaseAddress + sizeof(DispatchrCode32) + sizeof(LoaderCode32) + sizeof(ASYNC_USER_BLOCK32);
 
                     RtlCopyMemory(
-                        BaseAddress + sizeof(LoadShell32) + sizeof(ASYNC_USER_BLOCK32),
-                        InjectDllPath32,
-                        wcslen(InjectDllPath32) * 2);
+                        (PVOID)SyncUser32->DispatchrBase,
+                        DispatchrCode32,
+                        sizeof(DispatchrCode32));
+
+                    RtlCopyMemory(
+                        (PVOID)SyncUser32->Loader,
+                        LoaderCode32,
+                        sizeof(LoaderCode32));
+
+                    RtlCopyMemory(
+                        (PVOID)SyncUser32->ImageBase,
+                        FileBuffer,
+                        FileSize);
+
+                    LogSyncDbgPrint("Loader32:%p ImageBase32:%p\n", (PVOID)SyncUser32->Loader, (PVOID)SyncUser32->ImageBase);
 
                     PsWrapApcWow64Thread(&SyncUser32, &BaseAddress);
-                    LogSyncDbgPrint("x86 LdrLoadDll:%016llx\n", SyncUser32->LdrLoadDll);
                     AsyncCall(BaseAddress, SyncUser32, UserMode);
                 }
             }

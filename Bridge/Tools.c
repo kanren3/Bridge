@@ -1,4 +1,4 @@
-#include "Defs.h"
+﻿#include "Defs.h"
 #include "Tools.h"
 
 VOID NTAPI
@@ -198,7 +198,7 @@ GetExportProcAddress32(
         NtHeaders = (PIMAGE_NT_HEADERS32)(ImageBase + DosHeader->e_lfanew);
 
         ExportDirectory = (PIMAGE_EXPORT_DIRECTORY)(NtHeaders->OptionalHeader.
-            DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress + ImageBase);
+                                                    DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress + ImageBase);
 
         if (ExportDirectory) {
 
@@ -216,14 +216,14 @@ GetExportProcAddress32(
                 ExportDirectory->AddressOfFunctions) {
 
                 for (FunctionIndex = 0;
-                    FunctionIndex < ExportDirectory->NumberOfFunctions;
-                    FunctionIndex++) {
+                     FunctionIndex < ExportDirectory->NumberOfFunctions;
+                     FunctionIndex++) {
 
                     Name = NULL;
 
                     for (NameIndex = 0;
-                        NameIndex < ExportDirectory->NumberOfNames;
-                        NameIndex++) {
+                         NameIndex < ExportDirectory->NumberOfNames;
+                         NameIndex++) {
                         Ordinal = OrdinalTable[NameIndex];
 
                         if (Ordinal == FunctionIndex) {
@@ -291,7 +291,7 @@ GetExportProcAddress64(
         NtHeaders = (PIMAGE_NT_HEADERS64)(ImageBase + DosHeader->e_lfanew);
 
         ExportDirectory = (PIMAGE_EXPORT_DIRECTORY)(NtHeaders->OptionalHeader.
-            DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress + ImageBase);
+                                                    DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress + ImageBase);
 
         if (ExportDirectory) {
 
@@ -309,14 +309,14 @@ GetExportProcAddress64(
                 ExportDirectory->AddressOfFunctions) {
 
                 for (FunctionIndex = 0;
-                    FunctionIndex < ExportDirectory->NumberOfFunctions;
-                    FunctionIndex++) {
+                     FunctionIndex < ExportDirectory->NumberOfFunctions;
+                     FunctionIndex++) {
 
                     Name = NULL;
 
                     for (NameIndex = 0;
-                        NameIndex < ExportDirectory->NumberOfNames;
-                        NameIndex++) {
+                         NameIndex < ExportDirectory->NumberOfNames;
+                         NameIndex++) {
                         Ordinal = OrdinalTable[NameIndex];
 
                         if (Ordinal == FunctionIndex) {
@@ -343,4 +343,99 @@ GetExportProcAddress64(
 
     KeUnstackDetachProcess(&ApcSate);
     return 0;
+}
+
+PUCHAR
+NTAPI
+ReadFile (
+    __in PWCHAR NtPath,
+    __out PULONG FileSize
+)
+{
+    NTSTATUS Status;
+    UNICODE_STRING FilePathString;
+    OBJECT_ATTRIBUTES ObjectAttributes;
+    IO_STATUS_BLOCK IoStatusBlock;
+    HANDLE FileHandle;
+    FILE_STANDARD_INFORMATION StandardInformation = { 0 };
+    PUCHAR Buffer;
+
+    RtlInitUnicodeString(&FilePathString, NtPath);
+
+    InitializeObjectAttributes(&ObjectAttributes,
+                               &FilePathString,
+                               OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
+                               NULL,
+                               NULL);
+
+    Status = ZwCreateFile(&FileHandle,
+                          FILE_GENERIC_READ,
+                          &ObjectAttributes,
+                          &IoStatusBlock,
+                          NULL,
+                          FILE_ATTRIBUTE_NORMAL,
+                          FILE_SHARE_READ,
+                          FILE_OPEN,
+                          FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
+                          NULL,
+                          0);
+
+    if (FALSE == NT_SUCCESS(Status)) {
+        return NULL;
+    }
+
+    Status = ZwQueryInformationFile(FileHandle,
+                                    &IoStatusBlock,
+                                    &StandardInformation,
+                                    sizeof(FILE_STANDARD_INFORMATION),
+                                    FileStandardInformation);
+
+    if (FALSE == NT_SUCCESS(Status)) {
+        ZwClose(FileHandle);
+        return NULL;
+    }
+
+    if (StandardInformation.EndOfFile.QuadPart > ULONG_MAX) {
+        ZwClose(FileHandle);
+        return NULL;
+    }
+
+    Buffer = ExAllocatePoolWithTag(PagedPool, StandardInformation.EndOfFile.LowPart, 'eLif');
+
+    if (NULL == Buffer) {
+        ZwClose(FileHandle);
+        return NULL;
+    }
+
+    Status = ZwReadFile(FileHandle,
+                        NULL,
+                        NULL,
+                        NULL,
+                        &IoStatusBlock,
+                        Buffer,
+                        StandardInformation.EndOfFile.LowPart,
+                        NULL,
+                        NULL);
+
+    if (FALSE == NT_SUCCESS(Status)) {
+        ZwClose(FileHandle);
+        ExFreePoolWithTag(Buffer, 'eLif');
+        return NULL;
+    }
+
+    *FileSize = StandardInformation.EndOfFile.LowPart;
+
+    ZwClose(FileHandle);
+    return Buffer;
+}
+
+VOID
+NTAPI
+FreeFile (
+    __in PUCHAR Buffer
+)
+{
+    if (NULL != Buffer) {
+        ExFreePoolWithTag(Buffer, 'eLif');
+    }
 }
