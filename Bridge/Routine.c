@@ -49,6 +49,8 @@ AsyncKernelNormalRoutine(
                     SyncUser64->DispatchrBase = BaseAddress;
                     SyncUser64->Loader = BaseAddress + sizeof(DispatchrCode64);
                     SyncUser64->ImageBase = BaseAddress + sizeof(DispatchrCode64) + sizeof(LoaderCode64) + sizeof(ASYNC_USER_BLOCK64);
+                    SyncUser64->CleanBase = SyncUser64->Loader;
+                    SyncUser64->CleanSize = FileSize - sizeof(DispatchrCode64);
 
                     RtlCopyMemory(
                         (PVOID)SyncUser64->DispatchrBase,
@@ -94,6 +96,8 @@ AsyncKernelNormalRoutine(
                     SyncUser32->DispatchrBase = BaseAddress;
                     SyncUser32->Loader = BaseAddress + sizeof(DispatchrCode32);
                     SyncUser32->ImageBase = BaseAddress + sizeof(DispatchrCode32) + sizeof(LoaderCode32) + sizeof(ASYNC_USER_BLOCK32);
+                    SyncUser32->CleanBase = SyncUser32->Loader;
+                    SyncUser32->CleanSize = FileSize - sizeof(DispatchrCode32);
 
                     RtlCopyMemory(
                         (PVOID)SyncUser32->DispatchrBase,
